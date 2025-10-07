@@ -96,7 +96,6 @@ class _BattleScreenState extends State<BattleScreen>
         battleMessage += '\n${playerPokemon!.name} fainted!';
         _showEndDialog(false);
       } else {
-        // Prevents opponent from attacking if player has already won
         if (opponentPokemon!.currentHealth > 0) {
            Future.delayed(const Duration(seconds: 1));
         }
@@ -150,88 +149,158 @@ class _BattleScreenState extends State<BattleScreen>
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[200],
-      appBar: AppBar(
-        title: Text('Pokémon Battle', style: GoogleFonts.pressStart2p()),
-        backgroundColor: Colors.red,
-      ),
-      body: FutureBuilder<List<Pokemon>>(
-        future: _pokemonFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _showErrorDialog(snapshot.error.toString());
-            });
-            return const Center(child: Text('An error occurred.'));
-          }
-          if (!snapshot.hasData || snapshot.data!.length < 2) {
-            return const Center(child: Text('Failed to load Pokémon.'));
-          }
+ @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.grey[200],
+    appBar: AppBar(
+      title: Text('Pokémon Battle', style: GoogleFonts.pressStart2p()),
+      backgroundColor: Colors.red,
+    ),
+    body: FutureBuilder<List<Pokemon>>(
+      future: _pokemonFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showErrorDialog(snapshot.error.toString());
+          });
+          return const Center(child: Text('An error occurred.'));
+        }
+        if (!snapshot.hasData || snapshot.data!.length < 2) {
+          return const Center(child: Text('Failed to load Pokémon.'));
+        }
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.6,
-                  child: Stack(
-                    children: [
-                      _buildPokemonInfo(
-                          _opponentShakeAnimation, opponentPokemon!, true),
-                      _buildPokemonInfo(
-                          _playerShakeAnimation, playerPokemon!, false),
+        return SingleChildScrollView(
+          child: Column(
+            children: [
+              SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Stack(
+                  children: [
+                    _buildPokemonInfo(opponentPokemon!, true),
+                    _buildPokemonInfo(playerPokemon!, false),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.grey.shade300, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        spreadRadius: 2,
+                        blurRadius: 5,
+                        offset: const Offset(0, 3),
+                      ),
                     ],
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(16.0),
-                  color: Colors.white,
-                  child: Text(battleMessage,
-                      style: GoogleFonts.lato(fontSize: 18)),
-                ),
-                GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 3,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(opacity: animation, child: child);
+                    },
+                    child: Text(
+                      battleMessage,
+                      key: ValueKey<String>(battleMessage), // Important for AnimatedSwitcher to detect change
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.pressStart2p(fontSize: 14, color: Colors.black87),
+                    ),
                   ),
-                  itemCount: playerPokemon!.moves.length,
-                  shrinkWrap: true,
-                  physics:
-                      const NeverScrollableScrollPhysics(), // to prevent scrolling within the GridView
-                  padding: const EdgeInsets.all(8.0),
-                  itemBuilder: (context, index) {
-                    final move = playerPokemon!.moves[index];
-                    return Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: ElevatedButton(
-                        onPressed: () => _playerAttack(move),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Text(move.name,
-                            style: GoogleFonts.lato(fontSize: 16)),
-                      ),
-                    );
-                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Row(
+                  children: [
+                    Expanded(child: _buildAttackButton(playerPokemon!.moves[0])),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildAttackButton(playerPokemon!.moves[1], isSpecial: true)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
+
+  Widget _buildAttackButton(Move move, {bool isSpecial = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          colors: isSpecial
+              ? [Colors.purple.shade400, Colors.purple.shade700]
+              : [Colors.red.shade400, Colors.red.shade700],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isSpecial
+                ? Colors.purple.withOpacity(0.5)
+                : Colors.red.withOpacity(0.5),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: () => _playerAttack(move),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(isSpecial ? Icons.star : Icons.flash_on, color: Colors.white),
+            const SizedBox(width: 8),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  isSpecial ? 'Special Attack' : move.name.toUpperCase(),
+                  style: GoogleFonts.lato(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  isSpecial ? '${move.name.toUpperCase()} - ATK: ${move.power}' : 'ATK: ${move.power}',
+                  style: GoogleFonts.lato(
+                    fontSize: 10,
+                    color: Colors.white70,
+                  ),
                 ),
               ],
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildPokemonInfo(
-      Animation<double> shakeAnimation, Pokemon pokemon, bool isOpponent) {
+  Widget _buildPokemonInfo(Pokemon pokemon, bool isOpponent) {
+    final shakeAnimation = isOpponent ? _opponentShakeController : _playerShakeAnimation;
     return AnimatedBuilder(
       animation: shakeAnimation,
       builder: (context, child) {
@@ -250,7 +319,16 @@ class _BattleScreenState extends State<BattleScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Image.network(pokemon.imageUrl, height: 120),
+                       if (!isOpponent)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            'Your Pokémon',
+                            style: GoogleFonts.pressStart2p(
+                                fontSize: 10, color: Colors.blueAccent),
+                          ),
+                        ),
+                      Image.network(pokemon.imageUrl, height: 120, fit: BoxFit.cover),
                       Text(pokemon.name,
                           style: GoogleFonts.lato(
                               fontSize: 22, fontWeight: FontWeight.bold)),
