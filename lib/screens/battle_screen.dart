@@ -11,7 +11,7 @@ class BattleScreen extends StatefulWidget {
   final PokemonService pokemonService;
 
   BattleScreen({super.key, PokemonService? pokemonService})
-      : pokemonService = pokemonService ?? PokemonService();
+      : this.pokemonService = pokemonService ?? PokemonService();
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
@@ -98,7 +98,7 @@ class _BattleScreenState extends State<BattleScreen>
       } else {
         // Prevents opponent from attacking if player has already won
         if (opponentPokemon!.currentHealth > 0) {
-          Future.delayed(const Duration(seconds: 1));
+           Future.delayed(const Duration(seconds: 1));
         }
       }
     });
@@ -128,6 +128,28 @@ class _BattleScreenState extends State<BattleScreen>
     );
   }
 
+  void _showErrorDialog(String errorMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(errorMessage),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() {
+                _pokemonFuture = _startBattle();
+              });
+            },
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -143,7 +165,10 @@ class _BattleScreenState extends State<BattleScreen>
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showErrorDialog(snapshot.error.toString());
+            });
+            return const Center(child: Text('An error occurred.'));
           }
           if (!snapshot.hasData || snapshot.data!.length < 2) {
             return const Center(child: Text('Failed to load Pokémon.'));
