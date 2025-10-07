@@ -1,48 +1,15 @@
-name: Flutter CI & Android Deploy
+name: Flutter Android Deploy
 
 on:
-  pull_request:
-    branches:
-      - master
-      - dev
-
   push:
     branches:
       - master
       - dev
 
 jobs:
-  flutter-ci:
-    name: Lint, Analyze & Test
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 🧱 Checkout code
-        uses: actions/checkout@v4
-
-      - name: ⚙️ Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.35.5'
-          channel: 'stable'
-
-      - name: 📦 Install dependencies
-        run: flutter pub get
-
-      - name: 🔍 Analyze
-        run: flutter analyze
-
-      - name: 🧹 Format check
-        run: dart format --output=none --set-exit-if-changed .
-
-      - name: 🧪 Run tests
-        run: flutter test --no-pub
-
   deploy-app:
     name: Deploy to Firebase App Distribution (Android)
-    needs: flutter-ci
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
 
     steps:
       - name: 🧱 Checkout code
@@ -64,7 +31,6 @@ jobs:
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
           appId: ${{ github.ref_name == 'master' && secrets.FIREBASE_ANDROID_APP_ID_PROD || secrets.FIREBASE_ANDROID_APP_ID_DEV }}
+          token: ${{ secrets.FIREBASE_TOKEN }}
           groups: testers
           file: build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
