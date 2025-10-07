@@ -1,21 +1,87 @@
 name: Flutter Android Deploy
 
 on:
+  pull_request:
+    branches:
+      - master
+      - dev
+
   push:
     branches:
       - master
       - dev
 
 jobs:
-  deploy-app:
-    name: Deploy to Firebase App Distribution (Android)
+  flutter-ci:
+    name: Lint, Analyze & Test
     runs-on: ubuntu-latest
 
     steps:
       - name: 🧱 Checkout code
         uses: actions/checkout@v4
+
+      - name: ⚙️ Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          fetch-depth: 0
+          # Using a specific stable version is fine.
+          flutter-version: '3.35.5'
+          channel: 'stable'
+
+      - name: 📦 Install dependencies
+        run: flutter pub get
+
+      - name: 🔍 Analyze
+        run: flutter analyze
+
+      - name: 🧹 Format check
+        # Added --line-length 80 as a common best practice, adjust if needed.
+        run: dart format --output=none --set-exit-if-changed . --line-length 80
+
+      - name: 🧪 Run tests
+        run: flutter test --no-pub
+  deploy-web:
+    name: Deploy to Firebase Hosting
+    needs: flutter-ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' # Only run on push events (not PRs)
+
+    steps:
+      - name: 🧱 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.5'
+          channel: 'stable'
+
+      - name: 🧰 Build Flutter Web
+        run: flutter build web --release
+
+      - name: 🔥 Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          # This logic correctly chooses 'live' for master and 'dev' for other branches (like dev)
+          channelId: ${{ github.ref_name == 'master' && 'live' || 'dev' }}
+          # Only set projectId explicitly for 'master' if you have multiple projects.
+          # Otherwise, the default one from firebase.json is used. I'll keep your original logic.
+          projectId: ${{ github.ref_name == 'master' && 'pokemon-app-temp' || '' }}
+        env:
+          FIREBASE_CLI_EXPERIMENTS: webframeworks
+  deploy-app:
+    name: Deploy to Firebase App Distribution (Android)
+    needs: flutter-ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: 🧱 Checkout code
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 is essential for accurate git history/commit count
+          fetch-depth: 0 
 
       - name: ⚙️ Set up Flutter
         uses: subosito/flutter-action@v2
@@ -24,45 +90,45 @@ jobs:
           channel: 'stable'
 
       - name: 📦 Install dependencies
+        # This is required because this job runs on a clean runner, independent of the 'flutter-ci' job.
         run: flutter pub get
 
       - name: 🔢 Calculate Build Number and Version Name
         id: versioning
         run: |
-          # Get the current version from pubspec.yaml (e.g., 1.0.0+1)
+          # 1. Get the base version from pubspec.yaml (e.g., 1.0.0+1). The '+1' will be ignored.
           CURRENT_VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}')
           
-          # Use the number of commits on the current branch as the build number
-          BUILD_NUMBER=$(git rev-list --count ${{ github.sha }})
+          # 2. Use the total number of commits on the current branch as the build number.
+          # This is a common practice for continuous build numbering.
+          BUILD_NUMBER=$(git rev-list --count HEAD) # Using HEAD is safer than github.sha for a full count
           
-          # Extract the version name (e.g., 1.0.0)
+          # 3. Extract the version name (e.g., 1.0.0) - this is what Android calls 'versionName'
           VERSION_NAME=$(echo $CURRENT_VERSION | awk -F '+' '{print $1}')
           
-          # The new full version will be VERSION_NAME+BUILD_NUMBER
+          # The full version name for display/notes
           NEW_FULL_VERSION="${VERSION_NAME}+${BUILD_NUMBER}"
 
-          # Set the new full version as an output for later use
+          # Set outputs for subsequent steps
+          echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_OUTPUT
           echo "NEW_FULL_VERSION=${NEW_FULL_VERSION}" >> $GITHUB_OUTPUT
-          echo "RELEASE_NOTES=Commit: ${{ github.sha }} | Branch: ${{ github.ref_name }} | Deploy: ${NEW_FULL_VERSION}" >> $GITHUB_OUTPUT
+          echo "RELEASE_NOTES=Branch: ${{ github.ref_name }} | Version: ${NEW_FULL_VERSION} | Commit: ${{ github.sha }}" >> $GITHUB_OUTPUT
           
           echo "Calculated new version: ${NEW_FULL_VERSION}"
 
-      - name: ✍️ Update pubspec.yaml with New Version
-        run: |
-          # The 'sed' command replaces the 'version: X.Y.Z+B' line with the new version
-          # Ensure your version line is formatted like 'version: 1.0.0+1'
-          sed -i "s/^version: .*/version: ${{ steps.versioning.outputs.NEW_FULL_VERSION }}/" pubspec.yaml
-          cat pubspec.yaml # Optional: show the updated file content
-
       - name: 🏗️ Build Android APK
-        run: flutter build apk --release
+        run: |
+          flutter build apk --release \
+            --build-name=${{ steps.versioning.outputs.VERSION_NAME }} \
+            --build-number=${{ steps.versioning.outputs.BUILD_NUMBER }}
 
       - name: 🔥 Upload to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
-          appId: ${{ github.ref_name == 'master' && secrets.FIREBASE_ANDROID_APP_ID_PROD || secrets.FIREBASE_ANDROID_APP_ID_DEV }}
+          # Use different App IDs for master (prod) and dev branch
+          appId: ${{ github.ref_name == 'master' && secrets.FIREBASE_ANDROID_APP_ID_DEV }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           groups: testers
           file: build/app/outputs/flutter-apk/app-release.apk
-          # 💡 Add releaseNotes or releaseNotesFile to pass the unique version info
-          releaseNotes: ${{ steps.versioning.outputs.RELEASE_NOTES }} # Use the generated release notes
+          releaseNotes: ${{ steps.versioning.outputs.RELEASE_NOTES }}

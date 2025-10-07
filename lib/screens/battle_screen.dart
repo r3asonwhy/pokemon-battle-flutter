@@ -11,7 +11,7 @@ class BattleScreen extends StatefulWidget {
   final PokemonService pokemonService;
 
   BattleScreen({super.key, PokemonService? pokemonService})
-      : this.pokemonService = pokemonService ?? PokemonService();
+      : pokemonService = pokemonService ?? PokemonService();
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
@@ -27,7 +27,6 @@ class _BattleScreenState extends State<BattleScreen>
   late AnimationController _playerShakeController;
   late Animation<double> _playerShakeAnimation;
   late AnimationController _opponentShakeController;
-  late Animation<double> _opponentShakeAnimation;
 
   @override
   void initState() {
@@ -42,9 +41,6 @@ class _BattleScreenState extends State<BattleScreen>
 
     _opponentShakeController = AnimationController(
         duration: const Duration(milliseconds: 500), vsync: this);
-    _opponentShakeAnimation = Tween<double>(begin: 0, end: 10)
-        .chain(CurveTween(curve: Curves.elasticIn))
-        .animate(_opponentShakeController);
   }
 
   Future<List<Pokemon>> _startBattle() async {
@@ -97,7 +93,7 @@ class _BattleScreenState extends State<BattleScreen>
         _showEndDialog(false);
       } else {
         if (opponentPokemon!.currentHealth > 0) {
-           Future.delayed(const Duration(seconds: 1));
+          Future.delayed(const Duration(seconds: 1));
         }
       }
     });
@@ -149,91 +145,97 @@ class _BattleScreenState extends State<BattleScreen>
     );
   }
 
- @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Colors.grey[200],
-    appBar: AppBar(
-      title: Text('Pokémon Battle', style: GoogleFonts.pressStart2p()),
-      backgroundColor: Colors.red,
-    ),
-    body: FutureBuilder<List<Pokemon>>(
-      future: _pokemonFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _showErrorDialog(snapshot.error.toString());
-          });
-          return const Center(child: Text('An error occurred.'));
-        }
-        if (!snapshot.hasData || snapshot.data!.length < 2) {
-          return const Center(child: Text('Failed to load Pokémon.'));
-        }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[200],
+      appBar: AppBar(
+        title: Text('Pokémon Battle', style: GoogleFonts.pressStart2p()),
+        backgroundColor: Colors.red,
+      ),
+      body: FutureBuilder<List<Pokemon>>(
+        future: _pokemonFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _showErrorDialog(snapshot.error.toString());
+            });
+            return const Center(child: Text('An error occurred.'));
+          }
+          if (!snapshot.hasData || snapshot.data!.length < 2) {
+            return const Center(child: Text('Failed to load Pokémon.'));
+          }
 
-        return SingleChildScrollView(
-          child: Column(
-            children: [
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.6,
-                child: Stack(
-                  children: [
-                    _buildPokemonInfo(opponentPokemon!, true),
-                    _buildPokemonInfo(playerPokemon!, false),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Container(
-                  padding: const EdgeInsets.all(16.0),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(color: Colors.grey.shade300, width: 2),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        spreadRadius: 2,
-                        blurRadius: 5,
-                        offset: const Offset(0, 3),
-                      ),
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: Stack(
+                    children: [
+                      _buildPokemonInfo(opponentPokemon!, true),
+                      _buildPokemonInfo(playerPokemon!, false),
                     ],
                   ),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(opacity: animation, child: child);
-                    },
-                    child: Text(
-                      battleMessage,
-                      key: ValueKey<String>(battleMessage), // Important for AnimatedSwitcher to detect change
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.pressStart2p(fontSize: 14, color: Colors.black87),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(15),
+                      border: Border.all(color: Colors.grey.shade300, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(opacity: animation, child: child);
+                      },
+                      child: Text(
+                        battleMessage,
+                        key: ValueKey<String>(
+                            battleMessage), // Important for AnimatedSwitcher to detect change
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.pressStart2p(
+                            fontSize: 14, color: Colors.black87),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Row(
-                  children: [
-                    Expanded(child: _buildAttackButton(playerPokemon!.moves[0])),
-                    const SizedBox(width: 16),
-                    Expanded(child: _buildAttackButton(playerPokemon!.moves[1], isSpecial: true)),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                          child: _buildAttackButton(playerPokemon!.moves[0])),
+                      const SizedBox(width: 16),
+                      Expanded(
+                          child: _buildAttackButton(playerPokemon!.moves[1],
+                              isSpecial: true)),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
-    ),
-  );
-}
-
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   Widget _buildAttackButton(Move move, {bool isSpecial = false}) {
     return Container(
@@ -249,8 +251,8 @@ Widget build(BuildContext context) {
         boxShadow: [
           BoxShadow(
             color: isSpecial
-                ? Colors.purple.withOpacity(0.5)
-                : Colors.red.withOpacity(0.5),
+                ? Colors.purple.withValues(alpha: 0.5)
+                : Colors.red.withValues(alpha: 0.5),
             spreadRadius: 2,
             blurRadius: 10,
             offset: const Offset(0, 5),
@@ -285,7 +287,9 @@ Widget build(BuildContext context) {
                   ),
                 ),
                 Text(
-                  isSpecial ? '${move.name.toUpperCase()} - ATK: ${move.power}' : 'ATK: ${move.power}',
+                  isSpecial
+                      ? '${move.name.toUpperCase()} - ATK: ${move.power}'
+                      : 'ATK: ${move.power}',
                   style: GoogleFonts.lato(
                     fontSize: 10,
                     color: Colors.white70,
@@ -300,7 +304,8 @@ Widget build(BuildContext context) {
   }
 
   Widget _buildPokemonInfo(Pokemon pokemon, bool isOpponent) {
-    final shakeAnimation = isOpponent ? _opponentShakeController : _playerShakeAnimation;
+    final shakeAnimation =
+        isOpponent ? _opponentShakeController : _playerShakeAnimation;
     return AnimatedBuilder(
       animation: shakeAnimation,
       builder: (context, child) {
@@ -319,7 +324,7 @@ Widget build(BuildContext context) {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                       if (!isOpponent)
+                      if (!isOpponent)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 8.0),
                           child: Text(
@@ -328,7 +333,8 @@ Widget build(BuildContext context) {
                                 fontSize: 10, color: Colors.blueAccent),
                           ),
                         ),
-                      Image.network(pokemon.imageUrl, height: 120, fit: BoxFit.cover),
+                      Image.network(pokemon.imageUrl,
+                          height: 120, fit: BoxFit.cover),
                       Text(pokemon.name,
                           style: GoogleFonts.lato(
                               fontSize: 22, fontWeight: FontWeight.bold)),
