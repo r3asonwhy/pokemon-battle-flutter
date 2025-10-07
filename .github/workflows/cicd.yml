@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: 🧱 Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: ⚙️ Set up Flutter
         uses: subosito/flutter-action@v2
@@ -23,6 +25,34 @@ jobs:
 
       - name: 📦 Install dependencies
         run: flutter pub get
+
+      - name: 🔢 Calculate Build Number and Version Name
+        id: versioning
+        run: |
+          # Get the current version from pubspec.yaml (e.g., 1.0.0+1)
+          CURRENT_VERSION=$(grep 'version:' pubspec.yaml | head -1 | awk '{print $2}')
+          
+          # Use the number of commits on the current branch as the build number
+          BUILD_NUMBER=$(git rev-list --count ${{ github.sha }})
+          
+          # Extract the version name (e.g., 1.0.0)
+          VERSION_NAME=$(echo $CURRENT_VERSION | awk -F '+' '{print $1}')
+          
+          # The new full version will be VERSION_NAME+BUILD_NUMBER
+          NEW_FULL_VERSION="${VERSION_NAME}+${BUILD_NUMBER}"
+
+          # Set the new full version as an output for later use
+          echo "NEW_FULL_VERSION=${NEW_FULL_VERSION}" >> $GITHUB_OUTPUT
+          echo "RELEASE_NOTES=Commit: ${{ github.sha }} | Branch: ${{ github.ref_name }} | Deploy: ${NEW_FULL_VERSION}" >> $GITHUB_OUTPUT
+          
+          echo "Calculated new version: ${NEW_FULL_VERSION}"
+
+      - name: ✍️ Update pubspec.yaml with New Version
+        run: |
+          # The 'sed' command replaces the 'version: X.Y.Z+B' line with the new version
+          # Ensure your version line is formatted like 'version: 1.0.0+1'
+          sed -i "s/^version: .*/version: ${{ steps.versioning.outputs.NEW_FULL_VERSION }}/" pubspec.yaml
+          cat pubspec.yaml # Optional: show the updated file content
 
       - name: 🏗️ Build Android APK
         run: flutter build apk --release
@@ -34,3 +64,5 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           groups: testers
           file: build/app/outputs/flutter-apk/app-release.apk
+          # 💡 Add releaseNotes or releaseNotesFile to pass the unique version info
+          releaseNotes: ${{ steps.versioning.outputs.RELEASE_NOTES }} # Use the generated release notes
