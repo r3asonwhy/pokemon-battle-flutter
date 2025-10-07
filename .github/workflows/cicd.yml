@@ -38,7 +38,7 @@ jobs:
       - name: 🧪 Run tests
         run: flutter test --no-pub
 
-  deploy:
+  deploy-web:
     name: Deploy to Firebase Hosting
     needs: flutter-ci
     runs-on: ubuntu-latest
@@ -66,3 +66,33 @@ jobs:
           projectId: ${{ github.ref_name == 'master' && 'pokemon-app-temp' }}
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
+
+  deploy-app:
+    name: Deploy to Firebase App Distribution (Android)
+    needs: flutter-ci
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: 🧱 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.5'
+          channel: 'stable'
+
+      - name: 📦 Install dependencies
+        run: flutter pub get
+
+      - name: 🏗️ Build Android APK
+        run: flutter build apk --release
+
+      - name: 🔥 Upload to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ github.ref_name == 'master' && secrets.FIREBASE_ANDROID_APP_ID_DEV }}
+          token: ${{ secrets.FIREBASE_TOKEN }}
+          groups: testers
+          file: build/app/outputs/flutter-apk/app-release.apk
