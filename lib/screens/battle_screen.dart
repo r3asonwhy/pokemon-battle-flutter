@@ -3,34 +3,15 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:myapp/models/pokemon_model.dart';
 import 'package:myapp/services/pokemon_service.dart';
-
-// Models
-class Move {
-  final String name;
-  final int power;
-
-  Move({required this.name, required this.power});
-}
-
-class Pokemon {
-  final String name;
-  final String imageUrl;
-  final int maxHealth;
-  int currentHealth;
-  final List<Move> moves;
-
-  Pokemon({
-    required this.name,
-    required this.imageUrl,
-    required this.maxHealth,
-    required this.moves,
-  }) : currentHealth = maxHealth;
-}
 
 // Battle Screen
 class BattleScreen extends StatefulWidget {
-  const BattleScreen({super.key});
+  final PokemonService pokemonService;
+
+  BattleScreen({super.key, PokemonService? pokemonService})
+      : this.pokemonService = pokemonService ?? PokemonService();
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
@@ -67,9 +48,8 @@ class _BattleScreenState extends State<BattleScreen>
   }
 
   Future<List<Pokemon>> _startBattle() async {
-    final pokemonService = PokemonService();
-    final pokemon1 = await pokemonService.getRandomPokemon();
-    final pokemon2 = await pokemonService.getRandomPokemon();
+    final pokemon1 = await widget.pokemonService.getRandomPokemon();
+    final pokemon2 = await widget.pokemonService.getRandomPokemon();
 
     playerPokemon = pokemon1;
     opponentPokemon = pokemon2;
@@ -115,6 +95,11 @@ class _BattleScreenState extends State<BattleScreen>
         playerPokemon!.currentHealth = 0;
         battleMessage += '\n${playerPokemon!.name} fainted!';
         _showEndDialog(false);
+      } else {
+        // Prevents opponent from attacking if player has already won
+        if (opponentPokemon!.currentHealth > 0) {
+          Future.delayed(const Duration(seconds: 1));
+        }
       }
     });
   }
