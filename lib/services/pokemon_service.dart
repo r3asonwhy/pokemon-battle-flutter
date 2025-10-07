@@ -7,7 +7,7 @@ import 'package:myapp/models/pokemon_model.dart';
 class PokemonService {
   final http.Client client;
 
-  PokemonService({http.Client? client}) : this.client = client ?? http.Client();
+  PokemonService({http.Client? client}) : client = client ?? http.Client();
 
   Future<Pokemon> getRandomPokemon() async {
     final response = await client.get(Uri.parse(

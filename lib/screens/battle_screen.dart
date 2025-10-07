@@ -11,7 +11,7 @@ class BattleScreen extends StatefulWidget {
   final PokemonService pokemonService;
 
   BattleScreen({super.key, PokemonService? pokemonService})
-      : this.pokemonService = pokemonService ?? PokemonService();
+      : pokemonService = pokemonService ?? PokemonService();
 
   @override
   State<BattleScreen> createState() => _BattleScreenState();
