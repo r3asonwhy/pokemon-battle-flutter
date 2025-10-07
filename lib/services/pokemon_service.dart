@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
@@ -9,12 +8,14 @@ class PokemonService {
 
   Future<Pokemon> getRandomPokemon() async {
     final int pokemonId = _random.nextInt(151) + 1;
-    final response = await http.get(Uri.parse('https://pokeapi.co/api/v2/pokemon/$pokemonId'));
+    final response = await http
+        .get(Uri.parse('https://pokeapi.co/api/v2/pokemon/$pokemonId'));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final List<Move> moves = (data['moves'] as List)
-          .map((moveData) => Move(name: moveData['move']['name'], power: 20)) // Simplified power
+          .map((moveData) => Move(
+              name: moveData['move']['name'], power: 20)) // Simplified power
           .toList();
 
       return Pokemon(

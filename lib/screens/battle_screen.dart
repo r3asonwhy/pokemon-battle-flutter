@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:math';
 
@@ -37,7 +36,8 @@ class BattleScreen extends StatefulWidget {
   State<BattleScreen> createState() => _BattleScreenState();
 }
 
-class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMixin {
+class _BattleScreenState extends State<BattleScreen>
+    with TickerProviderStateMixin {
   late Future<List<Pokemon>> _pokemonFuture;
   Pokemon? playerPokemon;
   Pokemon? opponentPokemon;
@@ -53,12 +53,14 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
     super.initState();
     _pokemonFuture = _startBattle();
 
-    _playerShakeController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
+    _playerShakeController = AnimationController(
+        duration: const Duration(milliseconds: 500), vsync: this);
     _playerShakeAnimation = Tween<double>(begin: 0, end: 10)
         .chain(CurveTween(curve: Curves.elasticIn))
         .animate(_playerShakeController);
 
-    _opponentShakeController = AnimationController(duration: const Duration(milliseconds: 500), vsync: this);
+    _opponentShakeController = AnimationController(
+        duration: const Duration(milliseconds: 500), vsync: this);
     _opponentShakeAnimation = Tween<double>(begin: 0, end: 10)
         .chain(CurveTween(curve: Curves.elasticIn))
         .animate(_opponentShakeController);
@@ -102,7 +104,8 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
     if (playerPokemon == null || opponentPokemon == null) return;
 
     setState(() {
-      final move = opponentPokemon!.moves[Random().nextInt(opponentPokemon!.moves.length)];
+      final move = opponentPokemon!
+          .moves[Random().nextInt(opponentPokemon!.moves.length)];
       final damage = (move.power * (Random().nextDouble() + 0.5)).round();
       playerPokemon!.currentHealth -= damage;
       battleMessage = '${opponentPokemon!.name} used ${move.name}!';
@@ -168,15 +171,18 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
                   height: MediaQuery.of(context).size.height * 0.6,
                   child: Stack(
                     children: [
-                      _buildPokemonInfo(_opponentShakeAnimation, opponentPokemon!, true),
-                      _buildPokemonInfo(_playerShakeAnimation, playerPokemon!, false),
+                      _buildPokemonInfo(
+                          _opponentShakeAnimation, opponentPokemon!, true),
+                      _buildPokemonInfo(
+                          _playerShakeAnimation, playerPokemon!, false),
                     ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.all(16.0),
                   color: Colors.white,
-                  child: Text(battleMessage, style: GoogleFonts.lato(fontSize: 18)),
+                  child: Text(battleMessage,
+                      style: GoogleFonts.lato(fontSize: 18)),
                 ),
                 GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -185,7 +191,8 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
                   ),
                   itemCount: playerPokemon!.moves.length,
                   shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(), // to prevent scrolling within the GridView
+                  physics:
+                      const NeverScrollableScrollPhysics(), // to prevent scrolling within the GridView
                   padding: const EdgeInsets.all(8.0),
                   itemBuilder: (context, index) {
                     final move = playerPokemon!.moves[index];
@@ -199,7 +206,8 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: Text(move.name, style: GoogleFonts.lato(fontSize: 16)),
+                        child: Text(move.name,
+                            style: GoogleFonts.lato(fontSize: 16)),
                       ),
                     );
                   },
@@ -212,7 +220,8 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
     );
   }
 
-  Widget _buildPokemonInfo(Animation<double> shakeAnimation, Pokemon pokemon, bool isOpponent) {
+  Widget _buildPokemonInfo(
+      Animation<double> shakeAnimation, Pokemon pokemon, bool isOpponent) {
     return AnimatedBuilder(
       animation: shakeAnimation,
       builder: (context, child) {
@@ -224,14 +233,17 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
               padding: const EdgeInsets.all(16.0),
               child: Card(
                 elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Image.network(pokemon.imageUrl, height: 120),
-                      Text(pokemon.name, style: GoogleFonts.lato(fontSize: 22, fontWeight: FontWeight.bold)),
+                      Text(pokemon.name,
+                          style: GoogleFonts.lato(
+                              fontSize: 22, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       SizedBox(
                         width: 150,
@@ -241,12 +253,14 @@ class _BattleScreenState extends State<BattleScreen> with TickerProviderStateMix
                           valueColor: AlwaysStoppedAnimation<Color>(
                               pokemon.currentHealth / pokemon.maxHealth > 0.5
                                   ? Colors.green
-                                  : pokemon.currentHealth / pokemon.maxHealth > 0.2
+                                  : pokemon.currentHealth / pokemon.maxHealth >
+                                          0.2
                                       ? Colors.orange
                                       : Colors.red),
                         ),
                       ),
-                      Text('${pokemon.currentHealth}/${pokemon.maxHealth}', style: GoogleFonts.lato(fontSize: 16)),
+                      Text('${pokemon.currentHealth}/${pokemon.maxHealth}',
+                          style: GoogleFonts.lato(fontSize: 16)),
                     ],
                   ),
                 ),
