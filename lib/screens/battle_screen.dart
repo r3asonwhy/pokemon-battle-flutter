@@ -28,6 +28,22 @@ class _BattleScreenState extends State<BattleScreen>
   late Animation<double> _playerShakeAnimation;
   late AnimationController _opponentShakeController;
 
+  late AnimationController _playerAttackController;
+  late Animation<Offset> _playerAttackAnimation;
+  late AnimationController _opponentAttackController;
+  late Animation<Offset> _opponentAttackAnimation;
+
+  late AnimationController _playerFaintController;
+  late Animation<double> _playerFaintAnimation;
+  late AnimationController _opponentFaintController;
+  late Animation<double> _opponentFaintAnimation;
+
+  double? _playerPreviousHealth;
+  double? _opponentPreviousHealth;
+
+  final List<String> _battleLog = [];
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +57,34 @@ class _BattleScreenState extends State<BattleScreen>
 
     _opponentShakeController = AnimationController(
         duration: const Duration(milliseconds: 500), vsync: this);
+
+    _playerAttackController = AnimationController(
+        duration: const Duration(milliseconds: 400), vsync: this);
+    _playerAttackAnimation =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(0.2, 0))
+            .animate(CurvedAnimation(
+      parent: _playerAttackController,
+      curve: Curves.easeInOut,
+    ));
+
+    _opponentAttackController = AnimationController(
+        duration: const Duration(milliseconds: 400), vsync: this);
+    _opponentAttackAnimation =
+        Tween<Offset>(begin: Offset.zero, end: const Offset(-0.2, 0))
+            .animate(CurvedAnimation(
+      parent: _opponentAttackController,
+      curve: Curves.easeInOut,
+    ));
+
+    _playerFaintController =
+        AnimationController(duration: const Duration(seconds: 1), vsync: this);
+    _playerFaintAnimation =
+        CurvedAnimation(parent: _playerFaintController, curve: Curves.easeIn);
+
+    _opponentFaintController =
+        AnimationController(duration: const Duration(seconds: 1), vsync: this);
+    _opponentFaintAnimation =
+        CurvedAnimation(parent: _opponentFaintController, curve: Curves.easeIn);
   }
 
   Future<List<Pokemon>> _startBattle() async {
@@ -50,26 +94,50 @@ class _BattleScreenState extends State<BattleScreen>
     playerPokemon = pokemon1;
     opponentPokemon = pokemon2;
 
+    _playerPreviousHealth = playerPokemon!.maxHealth.toDouble();
+    _opponentPreviousHealth = opponentPokemon!.maxHealth.toDouble();
+
+    _playerFaintController.reset();
+    _opponentFaintController.reset();
+
     setState(() {
-      battleMessage = 'A wild ${opponentPokemon!.name} appeared!';
+      _battleLog.clear();
+      _addBattleLog('A wild ${opponentPokemon!.name} appeared!');
     });
 
     return [pokemon1, pokemon2];
   }
 
+  void _addBattleLog(String message) {
+    setState(() {
+      battleMessage = message;
+    });
+    _battleLog.add(message);
+    if (_listKey.currentState != null) {
+      _listKey.currentState!
+          .insertItem(0, duration: const Duration(milliseconds: 300));
+    }
+  }
+
   void _playerAttack(Move move) {
     if (playerPokemon == null || opponentPokemon == null) return;
 
+    _playerAttackController.forward().then((_) {
+      _playerAttackController.reverse();
+    });
+
     setState(() {
+      _opponentPreviousHealth = opponentPokemon!.currentHealth.toDouble();
       final damage = (move.power * (Random().nextDouble() + 0.5)).round();
       opponentPokemon!.currentHealth -= damage;
-      battleMessage = '${playerPokemon!.name} used ${move.name}!';
+      _addBattleLog('${playerPokemon!.name} used ${move.name}!');
       _opponentShakeController.forward(from: 0);
 
       if (opponentPokemon!.currentHealth <= 0) {
         opponentPokemon!.currentHealth = 0;
-        battleMessage += '\n${opponentPokemon!.name} fainted!';
-        _showEndDialog(true);
+        _opponentFaintController.forward();
+        _addBattleLog('${opponentPokemon!.name} fainted!');
+        Future.delayed(const Duration(seconds: 2), () => _showEndDialog(true));
       } else {
         Future.delayed(const Duration(seconds: 1), _opponentAttack);
       }
@@ -77,24 +145,30 @@ class _BattleScreenState extends State<BattleScreen>
   }
 
   void _opponentAttack() {
-    if (playerPokemon == null || opponentPokemon == null) return;
+    if (playerPokemon == null ||
+        opponentPokemon == null ||
+        opponentPokemon!.currentHealth <= 0) {
+      return;
+    }
+
+    _opponentAttackController.forward().then((_) {
+      _opponentAttackController.reverse();
+    });
 
     setState(() {
+      _playerPreviousHealth = playerPokemon!.currentHealth.toDouble();
       final move = opponentPokemon!
           .moves[Random().nextInt(opponentPokemon!.moves.length)];
       final damage = (move.power * (Random().nextDouble() + 0.5)).round();
       playerPokemon!.currentHealth -= damage;
-      battleMessage = '${opponentPokemon!.name} used ${move.name}!';
+      _addBattleLog('${opponentPokemon!.name} used ${move.name}!');
       _playerShakeController.forward(from: 0);
 
       if (playerPokemon!.currentHealth <= 0) {
         playerPokemon!.currentHealth = 0;
-        battleMessage += '\n${playerPokemon!.name} fainted!';
-        _showEndDialog(false);
-      } else {
-        if (opponentPokemon!.currentHealth > 0) {
-          Future.delayed(const Duration(seconds: 1));
-        }
+        _playerFaintController.forward();
+        _addBattleLog('${playerPokemon!.name} fainted!');
+        Future.delayed(const Duration(seconds: 2), () => _showEndDialog(false));
       }
     });
   }
@@ -185,6 +259,7 @@ class _BattleScreenState extends State<BattleScreen>
                   padding: const EdgeInsets.symmetric(
                       horizontal: 16.0, vertical: 8.0),
                   child: Container(
+                    height: 100,
                     padding: const EdgeInsets.all(16.0),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.9),
@@ -206,8 +281,7 @@ class _BattleScreenState extends State<BattleScreen>
                       },
                       child: Text(
                         battleMessage,
-                        key: ValueKey<String>(
-                            battleMessage), // Important for AnimatedSwitcher to detect change
+                        key: ValueKey<String>(battleMessage),
                         textAlign: TextAlign.center,
                         style: GoogleFonts.pressStart2p(
                             fontSize: 14, color: Colors.black87),
@@ -215,20 +289,21 @@ class _BattleScreenState extends State<BattleScreen>
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                          child: _buildAttackButton(playerPokemon!.moves[0])),
-                      const SizedBox(width: 16),
-                      Expanded(
-                          child: _buildAttackButton(playerPokemon!.moves[1],
-                              isSpecial: true)),
-                    ],
+                if (playerPokemon != null && playerPokemon!.currentHealth > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 8.0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                            child: _buildAttackButton(playerPokemon!.moves[0])),
+                        const SizedBox(width: 16),
+                        Expanded(
+                            child: _buildAttackButton(playerPokemon!.moves[1],
+                                isSpecial: true)),
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           );
@@ -306,63 +381,89 @@ class _BattleScreenState extends State<BattleScreen>
   Widget _buildPokemonInfo(Pokemon pokemon, bool isOpponent) {
     final shakeAnimation =
         isOpponent ? _opponentShakeController : _playerShakeAnimation;
-    return AnimatedBuilder(
-      animation: shakeAnimation,
-      builder: (context, child) {
-        return Align(
-          alignment: isOpponent ? Alignment.topLeft : Alignment.bottomRight,
-          child: Transform.translate(
-            offset: Offset(shakeAnimation.value, 0),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!isOpponent)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Text(
-                            'Your Pokémon',
-                            style: GoogleFonts.pressStart2p(
-                                fontSize: 10, color: Colors.blueAccent),
-                          ),
-                        ),
-                      Image.network(pokemon.imageUrl,
-                          height: 120, fit: BoxFit.cover),
-                      Text(pokemon.name,
-                          style: GoogleFonts.lato(
-                              fontSize: 22, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: 150,
-                        child: LinearProgressIndicator(
-                          value: pokemon.currentHealth / pokemon.maxHealth,
-                          backgroundColor: Colors.grey[300],
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              pokemon.currentHealth / pokemon.maxHealth > 0.5
-                                  ? Colors.green
-                                  : pokemon.currentHealth / pokemon.maxHealth >
-                                          0.2
-                                      ? Colors.orange
-                                      : Colors.red),
+    final attackAnimation =
+        isOpponent ? _opponentAttackAnimation : _playerAttackAnimation;
+    final faintAnimation =
+        isOpponent ? _opponentFaintAnimation : _playerFaintAnimation;
+    final previousHealth =
+        isOpponent ? _opponentPreviousHealth : _playerPreviousHealth;
+
+    return FadeTransition(
+      opacity: faintAnimation.drive(Tween<double>(begin: 1.0, end: 0.0)),
+      child: SlideTransition(
+        position: faintAnimation.drive(
+            Tween<Offset>(begin: Offset.zero, end: const Offset(0, 1.5))),
+        child: AnimatedBuilder(
+          animation: shakeAnimation,
+          builder: (context, child) {
+            return Align(
+              alignment: isOpponent ? Alignment.topLeft : Alignment.bottomRight,
+              child: SlideTransition(
+                position: attackAnimation,
+                child: Transform.translate(
+                  offset: Offset(shakeAnimation.value, 0),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (!isOpponent)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: Text(
+                                  'Your Pokémon',
+                                  style: GoogleFonts.pressStart2p(
+                                      fontSize: 10, color: Colors.blueAccent),
+                                ),
+                              ),
+                            Image.network(pokemon.imageUrl,
+                                height: 120, fit: BoxFit.cover),
+                            Text(pokemon.name,
+                                style: GoogleFonts.lato(
+                                    fontSize: 22, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: 150,
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween<double>(
+                                    begin: previousHealth,
+                                    end: pokemon.currentHealth.toDouble()),
+                                duration: const Duration(milliseconds: 400),
+                                builder: (context, animatedHp, child) {
+                                  return LinearProgressIndicator(
+                                    value: animatedHp / pokemon.maxHealth,
+                                    backgroundColor: Colors.grey[300],
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        animatedHp / pokemon.maxHealth > 0.5
+                                            ? Colors.green
+                                            : animatedHp / pokemon.maxHealth >
+                                                    0.2
+                                                ? Colors.orange
+                                                : Colors.red),
+                                  );
+                                },
+                              ),
+                            ),
+                            Text(
+                                '${pokemon.currentHealth}/${pokemon.maxHealth}',
+                                style: GoogleFonts.lato(fontSize: 16)),
+                          ],
                         ),
                       ),
-                      Text('${pokemon.currentHealth}/${pokemon.maxHealth}',
-                          style: GoogleFonts.lato(fontSize: 16)),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-        );
-      },
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -370,6 +471,10 @@ class _BattleScreenState extends State<BattleScreen>
   void dispose() {
     _playerShakeController.dispose();
     _opponentShakeController.dispose();
+    _playerAttackController.dispose();
+    _opponentAttackController.dispose();
+    _playerFaintController.dispose();
+    _opponentFaintController.dispose();
     super.dispose();
   }
 }
